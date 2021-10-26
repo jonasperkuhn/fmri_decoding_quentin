@@ -20,15 +20,15 @@ def load_data(preprocessing: str, roi: str, data_path: str, bin_mask: bool=False
     # import mask (and binarize, if specified)
     if bin_mask:
         binarize_mask(roi, data_path)
-    mask_bin = data_path + roi + 'mask_bin.nii'  # import mask
+    mask_bin = data_path + 'masks/' + roi + 'mask_bin.nii'  # set path to binarized mask
     # import behavioral data
-    behavioral = pd.read_csv(data_path + 'onsets_decoding_pilot01_ses12.csv', delimiter=';')
+    behavioral = pd.read_csv(data_path + 'data_behav.csv', delimiter=';')
     # select only stimulus trials (in brain and behavioral data)
-    conditions = behavioral['Condition']
-    condition_mask = conditions.isin(['Negatif', 'Neutre'])  # index to restrict data to negative or neutral stimuli
+    conditions_all = behavioral['condition']
+    condition_mask = conditions_all.isin(['Negatif', 'Neutre'])  # index to restrict data to negative or neutral stimuli
     fmri_niimgs = index_img(fmri_ses12, condition_mask)
-    conditions = conditions[condition_mask]
-    conditions = conditions.values  # Convert to numpy array
+    conditions_trials = conditions_all[condition_mask]
+    conditions = conditions_trials.values  # Convert to numpy array
     # plot results for checking
     if plot:
         print(fmri_ses12.shape)
@@ -53,7 +53,7 @@ def perform_decoding_cv(cv_type: str, anova: bool, conditions, fmri_niimgs, mask
     elif cv_type == 'session_out':
         cv = LeaveOneGroupOut()
         scoring = 'roc_auc'
-        groups = behavioral['Session'][condition_mask]
+        groups = behavioral['session'][condition_mask]
     else:
         print('Input error "cv_type": Please indicate either as "k_fold" or as "session_out"')
         return
@@ -76,32 +76,35 @@ def plot_weights(decoder, anat, data_path):
     return
 
 # helper functions:
-def load_brain_data(preprocessing, data_path):
-    if preprocessing == 'normalize':
-        print('todo: adjust for different batch options')
-    else:
-        # import brain data
-        fmri_ses1 = data_path + 'ses1/' + 'swrBaseline_epi3mm_MB2_TE30_TR2000_IRMf_20211005094519_5.nii'
-        fmri_ses2 = data_path + '/data/brain_data/Session_2_epi3mm_MB2_TE30_TR2000_IRMf_20210727114430_6.nii'
-        anat = '/data/brain_data/wDicom_baseline_mprage_sag_T1_160sl_iPAT2_20210727114430_2.nii'
-        fmri_ses12 = concat_imgs([fmri_ses1, fmri_ses2])  # concatenate brain data
-    return fmri_ses12
+def load_brain_data(preprocessing, fname_fmri_ses1, fname_fmri_ses2, fname_t1, data_path):
+    # enter preprocessing arg as 'r', 'sr', or 'swr
+    # import brain data
+    fmri_ses1 = data_path + 'ses1/' + preprocessing + fname_fmri_ses1
+    fmri_ses2 = data_path + 'ses2/' + preprocessing + fname_fmri_ses2
+    anat = data_path + 'T1/' + fname_t1
+    fmri_ses12 = concat_imgs([fmri_ses1, fmri_ses2])  # concatenate brain data
+    return fmri_ses12, anat
 
 def binarize_mask(roi, data_path):
     ##Create mask
-    mask_neuroquery = data_path + roi + '_mask.nii'
-    plotting.plot_roi(mask_neuroquery, bg_img=anat, cmap='Paired')
-    mask_bin = math_img('img > 5', img=mask_neuroquery)
+    mask_raw = data_path + 'masks/' + roi + '_mask.nii'
+    plotting.plot_roi(mask_raw, bg_img=anat, cmap='Paired')
+    mask_bin = math_img('img > 5', img=mask_raw)
     plotting.plot_roi(mask_bin, bg_img=anat, cmap='Paired')
     mask_bin.to_filename(data_path + roi + '_mask_bin.nii')
+    return
 
 
 # define path to project folder and main params
-preprocessing = "normalize"
+preprocessing = "r"  # specify as 'r' (realigned), 'sr' (realigned + smoothed), or 'swr' (sr + normalization)
 roi = "whole_brain"
-project_path = "C:/Users/Jonas/PycharmProjects/fmri_decoding_quentin/decoding"
-data_path = "C:/Private/Studium/Studium Leipzig/Praktika/2021/Paris Pauline Favre/Motor neurofeedback/data_pilot_02"
+project_path = "C:/Users/Jonas/PycharmProjects/fmri_decoding_quentin/decoding/"
+data_path = project_path + "data/pilot_02/"  # set path to data folder of current set
+fname_fmri_ses1 = "Baseline_epi3mm_MB2_TE30_TR2000_IRMf_20211005094519_5.nii"  # enter raw name of frmi baseline scan of session
+fname_fmri_ses2 = "Baseline_epi3mm_MB2_TE30_TR2000_IRMf_20211005094519_7.nii"  # same for ses 2
+fname_t1 = "20211005.Test_JH_05102021.Test_JH_05102021_mprage_sag_T1_160sl_iPAT2_20211005094519_2.nii"
 random_state = 8
+
 # load data
 conditions, fmri_niimgs, anat, mask_bin, behavioral, condition_mask = \
     load_data(preprocessing=preprocessing, roi=roi, data_path=data_path, bin_mask=False, plot=False)
@@ -118,7 +121,7 @@ plot_weights(decoder, anat, data_path)
 stat_img = data_path + 'stats_baseline_event_subspace/spmT_0003.nii' # stat_img is just the name of the file that we downloaded
 #print(stat_img)
 #MNI_152 = "/usr/local/fsl/data/standard/MNI152_T1_1mm_brain.nii.gz"
-html_view = plotting.view_img(stat_img,bg_img=anat, threshold=4.36,symmetric_cmap=False, vmin=0,
+html_view = plotting.view_img(stat_img,bg_img=anat, threshold=4.36, symmetric_cmap=False, vmin=0,
                                      title="Negative > Neutral")
 html_view.open_in_browser()
 #html_view.save_as_html(os.path.join(directory,'viewer.html'))
