@@ -14,30 +14,48 @@ from sklearn.model_selection import LeaveOneGroupOut
 from nilearn.plotting import plot_stat_map
 
 # define functions
-def load_data(preprocessing: str, roi: str, data_path: str, bin_mask: bool=False, plot: bool=False):
+def load_data(preprocessing: str, roi: str, fname_fmri_ses1: str, fname_fmri_ses2: str, fname_t1: str, data_path: str, bin_mask: bool=False, plot: bool=False):
     # load brain data
-    fmri_ses12 = load_brain_data(preprocessing=preprocessing, data_path=data_path)
+    fmri_ses12, anat = load_brain_data(preprocessing, fname_fmri_ses1, fname_fmri_ses2, fname_t1, data_path)
     # import mask (and binarize, if specified)
     if bin_mask:
         binarize_mask(roi, data_path)
-    mask_bin = data_path + 'masks/' + roi + 'mask_bin.nii'  # set path to binarized mask
+    mask_bin = data_path + 'masks_bin/' + roi + 'mask_bin.nii'  # set path to binarized mask
     # import behavioral data
-    behavioral = pd.read_csv(data_path + 'data_behav.csv', delimiter=';')
+    behavioral = pd.read_csv(data_path + 'conditions/data_behav.csv', delimiter=';')  # todo: automatize reading data from excel file
     # select only stimulus trials (in brain and behavioral data)
     conditions_all = behavioral['condition']
-    condition_mask = conditions_all.isin(['Negatif', 'Neutre'])  # index to restrict data to negative or neutral stimuli
+    condition_mask = conditions_all.isin(['regulation', 'neutre'])  # index to restrict data to negative or neutral stimuli todo: unify names
     fmri_niimgs = index_img(fmri_ses12, condition_mask)
     conditions_trials = conditions_all[condition_mask]
     conditions = conditions_trials.values  # Convert to numpy array
     # plot results for checking
     if plot:
         print(fmri_ses12.shape)
-        p1 = plotting.view_img(mean_img(fmri_ses12), threshold=None)
+        p1 = plotting.view_img(mean_img(fmri_ses12), threshold=None)  # todo: sth. wrong with brain data?
         p1.open_in_browser()
         plotting.plot_roi(mask_bin, bg_img=anat, cmap='Paired')
     return fmri_niimgs, anat, mask_bin, behavioral, condition_mask, conditions
 
-def perform_decoding_cv(cv_type: str, anova: bool, conditions, fmri_niimgs, mask_bin, behavioral, condition_mask, random_state):
+def load_brain_data(preprocessing, fname_fmri_ses1, fname_fmri_ses2, fname_t1, data_path):
+    # enter preprocessing arg as 'r', 'sr', or 'swr
+    # import brain data
+    fmri_ses1 = data_path + 'ses1/' + preprocessing + fname_fmri_ses1
+    fmri_ses2 = data_path + 'ses2/' + preprocessing + fname_fmri_ses2
+    anat = data_path + 'T1/' + fname_t1
+    fmri_ses12 = concat_imgs([fmri_ses1, fmri_ses2])  # concatenate brain data
+    return fmri_ses12, anat
+
+def binarize_mask(roi, data_path):
+    ##Create mask
+    mask_raw = data_path + 'masks/' + roi + '_mask.nii'
+    plotting.plot_roi(mask_raw, bg_img=anat, cmap='Paired')
+    mask_bin = math_img('img > 5', img=mask_raw)
+    plotting.plot_roi(mask_bin, bg_img=anat, cmap='Paired')
+    mask_bin.to_filename(data_path + roi + '_mask_bin.nii')
+    return
+
+def perform_decoding_cv(conditions, fmri_niimgs, mask_bin, behavioral, condition_mask, random_state, cv_type: str, anova: bool):
     # perform feature reduction via anova
     if anova:
         smoothing_fwhm = 8
@@ -59,7 +77,7 @@ def perform_decoding_cv(cv_type: str, anova: bool, conditions, fmri_niimgs, mask
         return
     # build decoder
     decoder = Decoder(estimator='svc', mask=mask_bin, cv=cv, screening_percentile=screening_percentile,
-                      scoring=scoring, smoothing_fwhm=smoothing_fwhm, standardize=True)
+                      scoring=scoring, smoothing_fwhm=smoothing_fwhm, standardize=True) # todo: discuss settings with Pauline
     # fit decoder
     decoder.fit(fmri_niimgs, conditions, groups=groups)
     return decoder
@@ -68,36 +86,17 @@ def plot_weights(decoder, anat, data_path):
     # plot model weights
     coef_ = decoder.coef_
     print(coef_.shape)
-    weigth_img = decoder.coef_img_['Negatif']
-    weigth_img.to_filename(data_path + 'Pilote02_weights_ses12_wholebrain_c1_anova.nii.gz')
+    weigth_img = decoder.coef_img_['regulation']
     plot_stat_map(weigth_img, bg_img=anat, title='SVM weights')
     p2 = plotting.view_img(weigth_img, bg_img=anat, title="SVM weights", dim=-1)
     p2.open_in_browser()
     return
 
-# helper functions:
-def load_brain_data(preprocessing, fname_fmri_ses1, fname_fmri_ses2, fname_t1, data_path):
-    # enter preprocessing arg as 'r', 'sr', or 'swr
-    # import brain data
-    fmri_ses1 = data_path + 'ses1/' + preprocessing + fname_fmri_ses1
-    fmri_ses2 = data_path + 'ses2/' + preprocessing + fname_fmri_ses2
-    anat = data_path + 'T1/' + fname_t1
-    fmri_ses12 = concat_imgs([fmri_ses1, fmri_ses2])  # concatenate brain data
-    return fmri_ses12, anat
-
-def binarize_mask(roi, data_path):
-    ##Create mask
-    mask_raw = data_path + 'masks/' + roi + '_mask.nii'
-    plotting.plot_roi(mask_raw, bg_img=anat, cmap='Paired')
-    mask_bin = math_img('img > 5', img=mask_raw)
-    plotting.plot_roi(mask_bin, bg_img=anat, cmap='Paired')
-    mask_bin.to_filename(data_path + roi + '_mask_bin.nii')
-    return
 
 
 # define path to project folder and main params
-preprocessing = "r"  # specify as 'r' (realigned), 'sr' (realigned + smoothed), or 'swr' (sr + normalization)
-roi = "whole_brain"
+preprocessing = "swr"  # specify as 'r' (realigned), 'sr' (realigned + smoothed), or 'swr' (sr + normalization)
+roi = "bin_iw_sma_nquery_"  # specify name of mask in data folder (e.g., 'whole_brain' or 'emot_reg') # todo: check which masks are working
 project_path = "C:/Users/Jonas/PycharmProjects/fmri_decoding_quentin/decoding/"
 data_path = project_path + "data/pilot_02/"  # set path to data folder of current set
 fname_fmri_ses1 = "Baseline_epi3mm_MB2_TE30_TR2000_IRMf_20211005094519_5.nii"  # enter raw name of frmi baseline scan of session
@@ -106,22 +105,28 @@ fname_t1 = "20211005.Test_JH_05102021.Test_JH_05102021_mprage_sag_T1_160sl_iPAT2
 random_state = 8
 
 # load data
-conditions, fmri_niimgs, anat, mask_bin, behavioral, condition_mask = \
-    load_data(preprocessing=preprocessing, roi=roi, data_path=data_path, bin_mask=False, plot=False)
+fmri_niimgs, anat, mask_bin, behavioral, condition_mask, conditions = \
+    load_data(preprocessing, roi, fname_fmri_ses1, fname_fmri_ses2, fname_t1, data_path, bin_mask=False, plot=True)
+
 # build and fit decoder in cv
 decoder = \
-    perform_decoding_cv(cv_type='k_fold', anova=False, conditions=conditions, fmri_niimgs=fmri_niimgs,
+    perform_decoding_cv(cv_type='k_fold', anova=True, conditions=conditions, fmri_niimgs=fmri_niimgs,
         mask_bin=mask_bin, behavioral=behavioral, condition_mask=condition_mask, random_state=random_state)
 # evaluate decoder
-print(np.mean(decoder.cv_scores_['Negatif']))
+print(np.mean(decoder.cv_scores_['regulation']))
+
 # plot decoder weights
 plot_weights(decoder, anat, data_path)
+
+# save decoder weights
+weigth_img = decoder.coef_img_['regulation']
+weigth_img.to_filename(data_path + 'weights/weights_' + preprocessing + '_' + roi + '.nii.gz')
 
 # get univariate stats ###
 stat_img = data_path + 'stats_baseline_event_subspace/spmT_0003.nii' # stat_img is just the name of the file that we downloaded
 #print(stat_img)
 #MNI_152 = "/usr/local/fsl/data/standard/MNI152_T1_1mm_brain.nii.gz"
-html_view = plotting.view_img(stat_img,bg_img=anat, threshold=4.36, symmetric_cmap=False, vmin=0,
+html_view = plotting.view_img(stat_img, bg_img=anat, threshold=4.36, symmetric_cmap=False, vmin=0,
                                      title="Negative > Neutral")
 html_view.open_in_browser()
 #html_view.save_as_html(os.path.join(directory,'viewer.html'))
