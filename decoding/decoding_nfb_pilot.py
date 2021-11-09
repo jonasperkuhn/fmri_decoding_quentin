@@ -65,13 +65,13 @@ def perform_decoding_cv(conditions, fmri_niimgs, mask_bin, behavioral, condition
         screening_percentile = 20
     # determine cv method
     if cv_type == 'k_fold':
-        cv = RepeatedKFold(n_splits=5, n_repeats=5, random_state=random_state)
+        cv = RepeatedKFold(n_splits=5, n_repeats=5, random_state=random_state)  # todo: add n_splits and n_repeats as input options?
         scoring = 'accuracy'
         groups = None
     elif cv_type == 'session_out':
         cv = LeaveOneGroupOut()
         scoring = 'roc_auc'
-        groups = behavioral['session'][condition_mask]
+        groups = behavioral['session'][condition_mask]  # todo: change from session to block
     else:
         print('Input error "cv_type": Please indicate either as "k_fold" or as "session_out"')
         return
@@ -82,7 +82,7 @@ def perform_decoding_cv(conditions, fmri_niimgs, mask_bin, behavioral, condition
     decoder.fit(fmri_niimgs, conditions, groups=groups)
     return decoder
 
-def plot_weights(decoder, anat, data_path):
+def plot_weights(decoder, anat):
     # plot model weights
     coef_ = decoder.coef_
     print(coef_.shape)
@@ -91,7 +91,6 @@ def plot_weights(decoder, anat, data_path):
     p2 = plotting.view_img(weigth_img, bg_img=anat, title="SVM weights", dim=-1)
     p2.open_in_browser()
     return
-
 
 
 # define path to project folder and main params
@@ -104,25 +103,28 @@ fname_fmri_ses2 = "Baseline_epi3mm_MB2_TE30_TR2000_IRMf_20211005094519_7.nii"  #
 fname_t1 = "20211005.Test_JH_05102021.Test_JH_05102021_mprage_sag_T1_160sl_iPAT2_20211005094519_2.nii"
 random_state = 8
 
+
 # load data
 fmri_niimgs, anat, mask_bin, behavioral, condition_mask, conditions = \
     load_data(preprocessing, roi, fname_fmri_ses1, fname_fmri_ses2, fname_t1, data_path, bin_mask=False, plot=True)
 
 # build and fit decoder in cv
-decoder = \
-    perform_decoding_cv(cv_type='k_fold', anova=True, conditions=conditions, fmri_niimgs=fmri_niimgs,
-        mask_bin=mask_bin, behavioral=behavioral, condition_mask=condition_mask, random_state=random_state)
+decoder = perform_decoding_cv(conditions, fmri_niimgs, mask_bin, behavioral,
+                              condition_mask, random_state, cv_type='k_fold', anova=False)
 # evaluate decoder
 print(np.mean(decoder.cv_scores_['regulation']))
 
 # plot decoder weights
-plot_weights(decoder, anat, data_path)
+plot_weights(decoder, anat)
 
 # save decoder weights
 weigth_img = decoder.coef_img_['regulation']
 weigth_img.to_filename(data_path + 'weights/weights_' + preprocessing + '_' + roi + '.nii.gz')
 
-# get univariate stats ###
+
+
+""" DEV PART """
+# get univariate stats
 stat_img = data_path + 'stats_baseline_event_subspace/spmT_0003.nii' # stat_img is just the name of the file that we downloaded
 #print(stat_img)
 #MNI_152 = "/usr/local/fsl/data/standard/MNI152_T1_1mm_brain.nii.gz"
@@ -130,3 +132,8 @@ html_view = plotting.view_img(stat_img, bg_img=anat, threshold=4.36, symmetric_c
                                      title="Negative > Neutral")
 html_view.open_in_browser()
 #html_view.save_as_html(os.path.join(directory,'viewer.html'))
+
+# directly read onsets and conditions from text file
+onsets = pd.read_csv(data_path + 'conditions/Stimuli_NF_BD_Baseline_pilot02_05-Oct-2021.txt', delimiter='\t', index_col=False, skiprows=4)
+onsets_TR = onsets.loc[:, ['condition', 'onsets_seconds']]
+onsets_TR['']
