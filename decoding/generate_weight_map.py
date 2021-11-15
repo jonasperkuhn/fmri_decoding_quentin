@@ -130,7 +130,6 @@ data_path = "C:/Users/Jonas/PycharmProjects/fmri_decoding_quentin/decoding/data/
 preprocessing = "sr"  # specify as 'r' (realigned), 'sr' (realigned + smoothed), or 'swr' (sr + normalization)
 random_state = 8
 
-
 # load data
 fmri_niimgs, fname_anat, mask, conds_fmri, condition_mask, conditions = \
     load_data(preprocessing, data_path, n_sessions=1, plot=False)  # todo: remove session param from script
@@ -147,19 +146,3 @@ plot_weights(decoder, fname_anat, condition='negative')
 # save decoder weights
 weigth_img = decoder.coef_img_['negative']
 weigth_img.to_filename(data_path + 'W1/weights.nii.gz')
-
-
-
-""" DEV PART """
-# get univariate stats
-stat_img = data_path + 'stats_baseline_event_subspace/spmT_0003.nii' # stat_img is just the name of the file that we downloaded
-#print(stat_img)
-#MNI_152 = "/usr/local/fsl/data/standard/MNI152_T1_1mm_brain.nii.gz"
-html_view = plotting.view_img(stat_img, bg_img=fname_anat, threshold=4.36, symmetric_cmap=False, vmin=0,
-                                     title="Negative > Neutral")
-html_view.open_in_browser()
-#html_view.save_as_html(os.path.join(directory,'viewer.html'))
-
-# directly read onsets and conditions from text file
-#onsets = pd.read_csv(data_path + 'conditions/Stimuli_NF_BD_Baseline_pilot02_05-Oct-2021.txt', delimiter='\t', index_col=False, skiprows=4)
-onsets = pd.read_csv(data_path + 'conditions/Stimuli_NF_BD_pilot01_1.txt', delimiter='\t', index_col=False, skiprows=4)
