@@ -60,7 +60,8 @@ def load_data(preprocessing: str, data_path: str, n_sessions: int, plot: bool=Fa
     fmri_data, fname_anat = load_brain_data(preprocessing, data_path)
     # import mask (and binarize, if specified)
     fname_mask = os.listdir(data_path + 'Mask_ROI_emo/')[0]  # get filename of first mask in folder
-    mask = math_img('img > 5', img=data_path + 'Mask_ROI_emo/' + fname_mask)  # load mask and binarize
+    mask = load_img(img=data_path + 'Mask_ROI_emo/' + fname_mask)  # load binarized mask
+    #mask = math_img('img > 5', img=data_path + 'Mask_ROI_emo/' + fname_mask)  # load mask and binarize
     #mask_bin.to_filename(data_path + roi + '_mask_bin.nii')  # save binarized mask
     # select only stimulus trials (in brain and behavioral data)
     conditions_all = conds_fmri['condition']
