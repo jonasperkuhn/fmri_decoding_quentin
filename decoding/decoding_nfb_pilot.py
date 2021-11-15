@@ -14,7 +14,14 @@ from sklearn.model_selection import LeaveOneGroupOut
 from nilearn.plotting import plot_stat_map
 
 # define functions
-def define_conds(n_sessions, n_scale_per_ses, conds, n_blocks_per_cond, n_tr_per_block, n_tr_scale, colnames):
+def define_conds(n_sessions, conds):
+    # set params
+    n_scale_per_ses = 2
+    n_blocks_per_cond = 3
+    n_tr_per_block = 15
+    n_tr_scale = 6
+    colnames = ['session', 'condition', 'block', 'TR']
+    # construct table
     conds_fmri = pd.DataFrame(columns=colnames)
     cols_df = conds_fmri.columns
     for i_ses in range(n_sessions):
@@ -85,7 +92,7 @@ def binarize_mask(roi, data_path):
     mask_bin.to_filename(data_path + roi + '_mask_bin.nii')
     return
 
-def perform_decoding_cv(conditions, fmri_niimgs, mask_bin, conds_fmri, condition_mask, random_state, cv_type: str, anova: bool):
+def perform_decoding_cv(conditions, fmri_niimgs, mask_bin, conds_fmri, condition_mask, random_state, cv_type: str, k_fold: int, anova: bool):
     # perform feature reduction via anova
     if anova:
         smoothing_fwhm = 8
@@ -95,7 +102,7 @@ def perform_decoding_cv(conditions, fmri_niimgs, mask_bin, conds_fmri, condition
         screening_percentile = 20
     # determine cv method
     if cv_type == 'k_fold':
-        cv = RepeatedKFold(n_splits=5, n_repeats=5, random_state=random_state)  # todo: add n_splits and n_repeats as input options?
+        cv = RepeatedKFold(n_splits=k_fold, n_repeats=5, random_state=random_state)  # todo: add n_splits and n_repeats as input options?
         scoring = 'accuracy'
         groups = None
     elif cv_type == 'block_out':
@@ -116,7 +123,7 @@ def plot_weights(decoder, anat):
     # plot model weights
     coef_ = decoder.coef_
     print(coef_.shape)
-    weigth_img = decoder.coef_img_['regulation']
+    weigth_img = decoder.coef_img_['negative']
     plot_stat_map(weigth_img, bg_img=anat, title='SVM weights')
     p2 = plotting.view_img(weigth_img, bg_img=anat, title="SVM weights", dim=-1)
     p2.open_in_browser()
@@ -135,15 +142,8 @@ random_state = 8
 
 # define conditions table manually (ideal state, based on design, not on real onset data!)
 n_sessions = 2
-n_scale_per_ses = 2
 conds = ['neutral', 'negative']
-n_blocks_per_cond = 3
-n_tr_per_block = 15
-n_tr_scale = 6
-colnames = ['session', 'condition', 'block', 'TR']
-# call function to create conditions table
-conds_fmri = define_conds(n_sessions, n_scale_per_ses,
-                              conds, n_blocks_per_cond, n_tr_per_block, n_tr_scale, colnames)
+conds_fmri = define_conds(n_sessions, conds)
 
 # load data
 fmri_niimgs, anat, mask_bin, conds_fmri, condition_mask, conditions = load_data(preprocessing, roi,
@@ -151,7 +151,7 @@ fmri_niimgs, anat, mask_bin, conds_fmri, condition_mask, conditions = load_data(
 
 # build and fit decoder in cv
 decoder = perform_decoding_cv(conditions, fmri_niimgs, mask_bin, conds_fmri,
-                              condition_mask, random_state, cv_type='k_fold', anova=False)
+                              condition_mask, random_state, cv_type='k_fold', k_fold=5, anova=False)
 # evaluate decoder
 print(np.mean(decoder.cv_scores_['negative']))  # todo: understand score (misclassif.?, why so good with motor?, try with other unrelated masks?)
 

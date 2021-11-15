@@ -1,6 +1,8 @@
 # fmri_decoding_quentin
 ## Instructions for using script
 to do
+- to binarize a mask, move it to the data folder and set the input param 'bin_mask' to True
+- 
 
 ## Data folder structure
 ### Save pilot data in:
