@@ -119,11 +119,11 @@ def perform_decoding_cv(conditions, fmri_niimgs, mask_bin, conds_fmri, condition
     decoder.fit(fmri_niimgs, conditions, groups=groups)
     return decoder
 
-def plot_weights(decoder, anat):
+def plot_weights(decoder, anat, condition):
     # plot model weights
-    coef_ = decoder.coef_
-    print(coef_.shape)
-    weigth_img = decoder.coef_img_['negative']
+    #coef_ = decoder.coef_
+    #print(coef_.shape)
+    weigth_img = decoder.coef_img_[condition]
     plot_stat_map(weigth_img, bg_img=anat, title='SVM weights')
     p2 = plotting.view_img(weigth_img, bg_img=anat, title="SVM weights", dim=-1)
     p2.open_in_browser()
@@ -153,13 +153,13 @@ fmri_niimgs, anat, mask_bin, conds_fmri, condition_mask, conditions = load_data(
 decoder = perform_decoding_cv(conditions, fmri_niimgs, mask_bin, conds_fmri,
                               condition_mask, random_state, cv_type='k_fold', k_fold=5, anova=False)
 # evaluate decoder
-print(np.mean(decoder.cv_scores_['negative']))  # todo: understand score (misclassif.?, why so good with motor?, try with other unrelated masks?)
+print(np.mean(decoder.cv_scores_[conds[1]]))  # todo: understand score (misclassif.?, why so good with motor?, try with other unrelated masks?)
 
 # plot decoder weights
-plot_weights(decoder, anat)
+plot_weights(decoder, anat, condition=conds[1])
 
 # save decoder weights
-weigth_img = decoder.coef_img_['negative']
+weigth_img = decoder.coef_img_[conds[1]]
 weigth_img.to_filename(data_path + 'weights/weights_' + preprocessing + '_' + roi + '.nii.gz')
 
 
