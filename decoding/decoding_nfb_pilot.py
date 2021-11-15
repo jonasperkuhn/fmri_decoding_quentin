@@ -145,7 +145,7 @@ n_sessions = 2
 conds = ['neutral', 'negative']
 conds_fmri = define_conds(n_sessions, conds)
 
-# load data
+# load data now
 fmri_niimgs, anat, mask_bin, conds_fmri, condition_mask, conditions = load_data(preprocessing, roi,
             fname_fmri_ses1, fname_fmri_ses2, fname_t1, conds_fmri, data_path, bin_mask=False, plot=True)
 
