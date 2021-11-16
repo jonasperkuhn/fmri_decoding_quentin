@@ -52,6 +52,40 @@ def define_conds():
     conds_fmri['TR'] = range(len(conds_fmri))
     return conds_fmri
 
+def get_conds_from_txt():
+    cond_names = [' neutre', ' regulation']  # ! pay attention to space bar before word (coming from text file)
+    # load txt file with onsets
+    onsets = pd.read_csv(data_path + 'NF_BD_Baseline_pilottest_16-Nov-2021.txt', delimiter='\t', index_col=False,
+                         skiprows=4)  # load txt file
+    conds_fmri = onsets[['condition', 'onsets_seconds']]  # select condition and onsets from txt file
+    # convert onsets (in seconds) to TR
+    conds_fmri[['dur_TR', 'TR']] = np.nan
+    for row, onset in enumerate(conds_fmri['onsets_seconds']):
+        conds_fmri.at[row, 'dur_TR'] = int(round(onset / 2))
+    n_TR = int(list(conds_fmri['dur_TR'])[-1])  # total number of TR
+    # set up and fill final conditions file with n_rows = n_TR
+    colnames = ['block', 'condition', 'TR']  # define variable names
+    conds_fmri_TR = pd.DataFrame(index=range(n_TR), columns=colnames)  # set up data frame
+    conds_fmri_TR['TR'] = range(n_TR)  # fill in one TR per row
+    # set conditions
+    for row, TR in enumerate(conds_fmri_TR['TR']):
+        # find (closest previous) condition for each TR
+        diff_to_tr = np.array([TR - dur_TR for dur_TR in conds_fmri['dur_TR']])  # compare TR of each row to TRs in original table
+        diff_to_tr_pos = np.where(diff_to_tr > 0, diff_to_tr, np.inf)  # set negative values to infinity
+        i_closest = diff_to_tr_pos.argmin()  # find condition of closest positive diff.
+        conds_fmri_TR.at[row, 'condition'] = conds_fmri['condition'][i_closest]  # set closest condition
+    # set block number from condition
+    i_block = 0
+    for row, cond in enumerate(conds_fmri_TR['condition']):
+        conds_fmri_TR.at[row, 'block'] = i_block  # set block number
+        # find last trial of each block
+        if row < (n_TR - 1):  # for every trial except very last trial
+            cond_next_trial = conds_fmri_TR['condition'][row + 1]  # get condition of subsequent trial
+            if cond == cond_names[1] and cond_next_trial != cond_names[
+                1]:  # if condition equals 'regulation' and subsequent trial does not (-> final regulation trial)
+                i_block = i_block + 1  # set block counter + 1
+    return conds_fmri_TR
+
 def load_data(preprocessing: str, data_path: str, plot: bool=False):
     # generate conditions file
     conds_fmri = define_conds()
@@ -145,4 +179,4 @@ plot_weights(decoder, fname_anat, condition='negative')
 
 # save decoder weights
 weigth_img = decoder.coef_img_['negative']
-weigth_img.to_filename(data_path + 'W1/weights.nii.gz')
+weigth_img.to_filename(data_path + 'W1/weights.nii')
