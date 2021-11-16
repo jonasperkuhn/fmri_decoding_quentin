@@ -20,7 +20,7 @@ def define_conds():
     n_scale_per_ses = 2
     n_blocks_per_cond = 3
     n_tr_per_block = 15
-    n_tr_scale = 6
+    n_tr_scale = 8
     conds = ['neutral', 'negative']
     colnames = ['block', 'condition', 'TR']
     # construct table
@@ -35,9 +35,9 @@ def define_conds():
     for i_scale in range(n_scale_per_ses):
         # append block of both conditions
         for i_block_cond in range(n_blocks_per_cond):
-            # append both conditions into separate blocks
+            i_block += 1  # add one to block counter
+            # append both conditions
             for i_cond, cond in enumerate(conds):
-                i_block += 1  # add one to block counter
                 # append instruction tr at beginning of block
                 row_to_append = pd.Series([i_block, 'instr', np.nan], index=cols_df)
                 conds_fmri = conds_fmri.append(row_to_append, ignore_index=True)
@@ -46,7 +46,7 @@ def define_conds():
                     conds_fmri = conds_fmri.append(row_to_append, ignore_index=True)
         # append scale tr's
         for i in range(n_tr_scale):
-            row_to_append = pd.Series([i_block, 'scale', np.nan], index=cols_df)
+            row_to_append = pd.Series([0, 'scale', np.nan], index=cols_df)
             conds_fmri = conds_fmri.append(row_to_append, ignore_index=True)
     # add TR values
     conds_fmri['TR'] = range(len(conds_fmri))
@@ -89,7 +89,7 @@ def load_brain_data(preprocessing, data_path):
 
 def perform_decoding_cv(conditions, fmri_niimgs, mask, conds_fmri, condition_mask, random_state: int, cv_type: str, n_folds: int, anova: bool):
     # perform feature reduction via anova
-    if anova:
+    if anova:  # todo: discuss/check params
         smoothing_fwhm = 8
         screening_percentile = 5
     else:
@@ -97,13 +97,13 @@ def perform_decoding_cv(conditions, fmri_niimgs, mask, conds_fmri, condition_mas
         screening_percentile = 20
     # determine cv method
     if cv_type == 'k_fold':
-        cv = RepeatedKFold(n_splits=n_folds, n_repeats=5, random_state=random_state)  # todo: add n_repeats as input options?
-        scoring = 'accuracy'
+        cv = RepeatedKFold(n_splits=n_folds, n_repeats=5, random_state=random_state)  # todo: add n_repeats as input option?
+        scoring = 'accuracy'  # todo: discuss/check
         groups = None
-    elif cv_type == 'block_out':
+    elif cv_type == 'block_out':  # todo: test block_out
         cv = LeaveOneGroupOut()
-        scoring = 'roc_auc'
-        groups = conds_fmri['block'][condition_mask]
+        scoring = 'roc_auc'  # todo: discuss/check
+        groups = conds_fmri[condition_mask]['block']
     else:
         print('Input error "cv_type": Please indicate either as "k_fold" or as "block_out"')
         return
