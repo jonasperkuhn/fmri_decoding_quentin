@@ -15,47 +15,46 @@ from sklearn.model_selection import LeaveOneGroupOut
 from nilearn.plotting import plot_stat_map
 
 # define functions
-def define_conds(n_sessions):
+def define_conds():
     # set params
     n_scale_per_ses = 2
     n_blocks_per_cond = 3
     n_tr_per_block = 15
     n_tr_scale = 6
     conds = ['neutral', 'negative']
-    colnames = ['session', 'condition', 'block', 'TR']
+    colnames = ['block', 'condition', 'TR']
     # construct table
     conds_fmri = pd.DataFrame(columns=colnames)
     cols_df = conds_fmri.columns
-    for i_ses in range(n_sessions):
-        i_block = 0  # set block counter to 0
-        # append first two instr tr of session
-        for i in range(2):
-            row_to_append = pd.Series([i_ses, 'instr', i_block, np.nan], index=cols_df)
-            conds_fmri = conds_fmri.append(row_to_append, ignore_index=True)
-        # append half a session, until scale tr
-        for i_scale in range(n_scale_per_ses):
-            # append block of both conditions
-            for i_block_cond in range(n_blocks_per_cond):
-                # append both conditions into separate blocks
-                for i_cond, cond in enumerate(conds):
-                    i_block += 1  # add one to block counter
-                    # append instruction tr at beginning of block
-                    row_to_append = pd.Series([i_ses, 'instr', i_block, np.nan], index=cols_df)
-                    conds_fmri = conds_fmri.append(row_to_append, ignore_index=True)
-                    for i_tr in range(n_tr_per_block):
-                        row_to_append = pd.Series([i_ses, cond, i_block, np.nan], index=cols_df)
-                        conds_fmri = conds_fmri.append(row_to_append, ignore_index=True)
-            # append scale tr's
-            for i in range(n_tr_scale):
-                row_to_append = pd.Series([i_ses, 'scale', i_block, np.nan], index=cols_df)
+    i_block = 0  # set block counter to 0
+    # append first two instr tr
+    for i in range(2):
+        row_to_append = pd.Series([i_block, 'instr', np.nan], index=cols_df)
+        conds_fmri = conds_fmri.append(row_to_append, ignore_index=True)
+    # append half a session, until scale tr
+    for i_scale in range(n_scale_per_ses):
+        # append block of both conditions
+        for i_block_cond in range(n_blocks_per_cond):
+            # append both conditions into separate blocks
+            for i_cond, cond in enumerate(conds):
+                i_block += 1  # add one to block counter
+                # append instruction tr at beginning of block
+                row_to_append = pd.Series([i_block, 'instr', np.nan], index=cols_df)
                 conds_fmri = conds_fmri.append(row_to_append, ignore_index=True)
+                for i_tr in range(n_tr_per_block):
+                    row_to_append = pd.Series([i_block, cond, np.nan], index=cols_df)
+                    conds_fmri = conds_fmri.append(row_to_append, ignore_index=True)
+        # append scale tr's
+        for i in range(n_tr_scale):
+            row_to_append = pd.Series([i_block, 'scale', np.nan], index=cols_df)
+            conds_fmri = conds_fmri.append(row_to_append, ignore_index=True)
     # add TR values
     conds_fmri['TR'] = range(len(conds_fmri))
     return conds_fmri
 
-def load_data(preprocessing: str, data_path: str, n_sessions: int, plot: bool=False):
+def load_data(preprocessing: str, data_path: str, plot: bool=False):
     # generate conditions file
-    conds_fmri = define_conds(n_sessions)
+    conds_fmri = define_conds()
     # load brain data
     fmri_data, fname_anat = load_brain_data(preprocessing, data_path)
     # import mask (and binarize, if specified)
@@ -104,7 +103,7 @@ def perform_decoding_cv(conditions, fmri_niimgs, mask, conds_fmri, condition_mas
     elif cv_type == 'block_out':
         cv = LeaveOneGroupOut()
         scoring = 'roc_auc'
-        groups = conds_fmri['block'][condition_mask]  # todo: change from session to block
+        groups = conds_fmri['block'][condition_mask]
     else:
         print('Input error "cv_type": Please indicate either as "k_fold" or as "block_out"')
         return
@@ -133,7 +132,7 @@ random_state = 8
 
 # load data
 fmri_niimgs, fname_anat, mask, conds_fmri, condition_mask, conditions = \
-    load_data(preprocessing, data_path, n_sessions=1, plot=False)  # todo: remove session param from script
+    load_data(preprocessing, data_path, plot=False)
 
 # build and fit decoder in cv
 decoder = perform_decoding_cv(conditions, fmri_niimgs, mask, conds_fmri,
