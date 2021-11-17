@@ -5,110 +5,71 @@
 import os
 import pandas as pd
 import numpy as np
-from nilearn import plotting
 from nilearn.image import mean_img
-from nilearn.image import math_img
 from nilearn.image import load_img, index_img
+from nilearn.plotting import view_img, plot_roi, plot_stat_map
 from nilearn.decoding import Decoder
 from sklearn.model_selection import RepeatedKFold
 from sklearn.model_selection import LeaveOneGroupOut
-from nilearn.plotting import plot_stat_map
 
 # define functions
-def define_conds():
-    # set params
-    n_scale_per_ses = 2
-    n_blocks_per_cond = 3
-    n_tr_per_block = 15
-    n_tr_scale = 8
-    conds = ['neutral', 'negative']
-    colnames = ['block', 'condition', 'TR']
-    # construct table
-    conds_fmri = pd.DataFrame(columns=colnames)
-    cols_df = conds_fmri.columns
-    i_block = 0  # set block counter to 0
-    # append first two instr tr
-    for i in range(2):
-        row_to_append = pd.Series([i_block, 'instr', np.nan], index=cols_df)
-        conds_fmri = conds_fmri.append(row_to_append, ignore_index=True)
-    # append half a session, until scale tr
-    for i_scale in range(n_scale_per_ses):
-        # append block of both conditions
-        for i_block_cond in range(n_blocks_per_cond):
-            i_block += 1  # add one to block counter
-            # append both conditions
-            for i_cond, cond in enumerate(conds):
-                # append instruction tr at beginning of block
-                row_to_append = pd.Series([i_block, 'instr', np.nan], index=cols_df)
-                conds_fmri = conds_fmri.append(row_to_append, ignore_index=True)
-                for i_tr in range(n_tr_per_block):
-                    row_to_append = pd.Series([i_block, cond, np.nan], index=cols_df)
-                    conds_fmri = conds_fmri.append(row_to_append, ignore_index=True)
-        # append scale tr's
-        for i in range(n_tr_scale):
-            row_to_append = pd.Series([0, 'scale', np.nan], index=cols_df)
-            conds_fmri = conds_fmri.append(row_to_append, ignore_index=True)
-    # add TR values
-    conds_fmri['TR'] = range(len(conds_fmri))
-    return conds_fmri
-
-def get_conds_from_txt():
-    cond_names = [' neutre', ' regulation']  # ! pay attention to space bar before word (coming from text file)
-    # load txt file with onsets
-    onsets = pd.read_csv(data_path + 'NF_BD_Baseline_pilottest_16-Nov-2021.txt', delimiter='\t', index_col=False,
-                         skiprows=4)  # load txt file
-    conds_fmri = onsets[['condition', 'onsets_seconds']]  # select condition and onsets from txt file
-    # convert onsets (in seconds) to TR
-    conds_fmri[['dur_TR', 'TR']] = np.nan
-    for row, onset in enumerate(conds_fmri['onsets_seconds']):
-        conds_fmri.at[row, 'dur_TR'] = int(round(onset / 2))
-    n_TR = int(list(conds_fmri['dur_TR'])[-1])  # total number of TR
-    # set up and fill final conditions file with n_rows = n_TR
-    colnames = ['block', 'condition', 'TR']  # define variable names
-    conds_fmri_TR = pd.DataFrame(index=range(n_TR), columns=colnames)  # set up data frame
-    conds_fmri_TR['TR'] = range(n_TR)  # fill in one TR per row
-    # set conditions
-    for row, TR in enumerate(conds_fmri_TR['TR']):
-        # find (closest previous) condition for each TR
-        diff_to_tr = np.array([TR - dur_TR for dur_TR in conds_fmri['dur_TR']])  # compare TR of each row to TRs in original table
-        diff_to_tr_pos = np.where(diff_to_tr > 0, diff_to_tr, np.inf)  # set negative values to infinity
-        i_closest = diff_to_tr_pos.argmin()  # find condition of closest positive diff.
-        conds_fmri_TR.at[row, 'condition'] = conds_fmri['condition'][i_closest]  # set closest condition
-    # set block number from condition
-    i_block = 0
-    for row, cond in enumerate(conds_fmri_TR['condition']):
-        conds_fmri_TR.at[row, 'block'] = i_block  # set block number
-        # find last trial of each block
-        if row < (n_TR - 1):  # for every trial except very last trial
-            cond_next_trial = conds_fmri_TR['condition'][row + 1]  # get condition of subsequent trial
-            if cond == cond_names[1] and cond_next_trial != cond_names[
-                1]:  # if condition equals 'regulation' and subsequent trial does not (-> final regulation trial)
-                i_block = i_block + 1  # set block counter + 1
-    return conds_fmri_TR
-
 def load_data(preprocessing: str, data_path: str, plot: bool=False):
-    # generate conditions file
-    conds_fmri = define_conds()
-    # load brain data
-    fmri_data, fname_anat = load_brain_data(preprocessing, data_path)
+    # get conditions data from txt file
+    fname_onsets = data_path + 'Onsets/' + os.listdir(data_path + 'Onsets')[0]  # get filename of text file with onsets (output from opennft)
+    onsets = pd.read_csv(fname_onsets, delimiter='\t', index_col=False, skiprows=4)  # load txt file with onsets
+    cond_names = [' neutre', ' regulation']  # set names of two main conditions (like in txt file) ! pay attention to space bar before word (coming from text file)
+    tr = 2  # set TR (in seconds)
+    conds_fmri = get_conds_from_txt(onsets, cond_names, tr)  # convert onset data to conditions file (['block', 'condition', 'TR'] with one row per TR)
+    #conds_fmri = conds_fmri.iloc[list(range(105)) + list(range(109, 210))]  # todo: only for debugging, to align phantom pilot onsets with pilot 2 data; ! remove later !
+    # load brain data [0:105, 109:209]
+    fmri_data, fname_anat = load_brain_data(preprocessing, data_path)  # load fmri data and T1
     # import mask (and binarize, if specified)
-    fname_mask = os.listdir(data_path + 'Mask_ROI_emo/')[0]  # get filename of first mask in folder
+    fname_mask = os.listdir(data_path + 'Mask_ROI_emo')[0]  # get filename of first mask in folder
     mask = load_img(img=data_path + 'Mask_ROI_emo/' + fname_mask)  # load binarized mask
-    #mask = math_img('img > 5', img=data_path + 'Mask_ROI_emo/' + fname_mask)  # load mask and binarize
-    #mask_bin.to_filename(data_path + roi + '_mask_bin.nii')  # save binarized mask
     # select only stimulus trials (in brain and behavioral data)
     conditions_all = conds_fmri['condition']
-    condition_mask = conditions_all.isin(['neutral', 'negative'])  # index to restrict data to negative or neutral stimuli
-    fmri_niimgs = index_img(fmri_data, condition_mask)
+    condition_mask = conditions_all.isin(cond_names)  # index to restrict data to negative or neutral stimuli
+    fmri_niimgs = index_img(fmri_data, condition_mask)  # select only neutral/negative trials from
     conditions_trials = conditions_all[condition_mask]
     conditions = conditions_trials.values  # Convert to numpy array
     # plot results for checking
     if plot:
         print(fmri_data.shape)  # print shape of fmri data
-        p1 = plotting.view_img(mean_img(fmri_data), threshold=None)  # todo: sth. wrong with brain data?
+        p1 = view_img(mean_img(fmri_data), threshold=None)  # todo: sth. wrong with brain data?
         p1.open_in_browser()
-        plotting.plot_roi(mask, bg_img=fname_anat, cmap='Paired')  # plot mask
-    return fmri_niimgs, fname_anat, mask, conds_fmri, condition_mask, conditions
+        plot_roi(mask, bg_img=fname_anat, cmap='Paired')  # plot mask
+    return fmri_niimgs, fname_anat, mask, conds_fmri, condition_mask, conditions, cond_names
+
+def get_conds_from_txt(onsets, cond_names, tr):
+    onsets_tr_a = onsets[['condition', 'onsets_seconds']]  # select condition and onsets from txt file
+    # convert onsets (in seconds) to TR
+    onsets_tr = onsets_tr_a.copy()  # copy data frame, due to pandas rules
+    onsets_tr.loc[:, ('dur_TR', 'TR')] = np.nan
+    for row, onset in enumerate(onsets_tr['onsets_seconds']):
+        onsets_tr.at[row, 'dur_TR'] = int(round(onset / tr))  # convert seconds to TR
+    n_TR = int(list(onsets_tr['dur_TR'])[-1])  # total number of TR
+    # set up and fill final conditions file with n_rows = n_TR
+    colnames = ['block', 'condition', 'TR']  # define variable names
+    conds_fmri = pd.DataFrame(index=range(n_TR), columns=colnames)  # set up data frame
+    conds_fmri['TR'] = range(n_TR)  # fill in one TR per row
+    # set conditions
+    for row, TR in enumerate(conds_fmri['TR']):
+        # find (closest previous) condition for each TR
+        diff_to_tr = np.array([TR - dur_TR for dur_TR in onsets_tr['dur_TR']])  # compare TR of each row to TRs in original table
+        diff_to_tr_pos = np.where(diff_to_tr > 0, diff_to_tr, np.inf)  # set negative values to infinity
+        i_closest = diff_to_tr_pos.argmin()  # find condition of closest positive diff.
+        conds_fmri.at[row, 'condition'] = onsets_tr['condition'][i_closest]  # set closest condition
+    # set block number from condition
+    i_block = 0
+    for row, cond in enumerate(conds_fmri['condition']):
+        conds_fmri.at[row, 'block'] = i_block  # set block number
+        # find last trial of each block
+        if row < (n_TR - 1):  # for every trial except very last trial
+            cond_next_trial = conds_fmri['condition'][row + 1]  # get condition of subsequent trial
+            if cond == cond_names[1] and cond_next_trial != cond_names[
+                1]:  # if condition equals 'regulation' and subsequent trial does not (-> final regulation trial)
+                i_block = i_block + 1  # set block counter + 1
+    return conds_fmri
 
 def load_brain_data(preprocessing, data_path):
     # enter preprocessing arg as 'r', 'sr', or 'swr
@@ -154,29 +115,29 @@ def plot_weights(decoder, fname_anat, condition):
     #print(coef_.shape)
     weigth_img = decoder.coef_img_[condition]
     plot_stat_map(weigth_img, bg_img=fname_anat, title='SVM weights')
-    p2 = plotting.view_img(weigth_img, bg_img=fname_anat, title="SVM weights", dim=-1)
-    p2.open_in_browser()
+    #p2 = view_img(weigth_img, bg_img=fname_anat, title="SVM weights", dim=-1)  # todo: seems to select false T1?
+    #p2.open_in_browser()
     return
 
 
 # define path to project folder and main params
-data_path = "C:/Users/Jonas/PycharmProjects/fmri_decoding_quentin/decoding/data/SESSION 1/"  # set path to data folder of current set
+data_path = "C:/Users/Jonas/PycharmProjects/fmri_decoding_quentin/decoding/data/pilot_03/"  # set path to data folder of current set
 preprocessing = "sr"  # specify as 'r' (realigned), 'sr' (realigned + smoothed), or 'swr' (sr + normalization)
 random_state = 8
 
 # load data
-fmri_niimgs, fname_anat, mask, conds_fmri, condition_mask, conditions = \
+fmri_niimgs, fname_anat, mask, conds_fmri, condition_mask, conditions, cond_names = \
     load_data(preprocessing, data_path, plot=False)
 
 # build and fit decoder in cv
 decoder = perform_decoding_cv(conditions, fmri_niimgs, mask, conds_fmri,
                               condition_mask, random_state, cv_type='k_fold', n_folds=5, anova=False)
 # evaluate decoder
-print(np.mean(decoder.cv_scores_['negative']))  # todo: understand score (misclassif.?, why so good with motor?, try with other unrelated masks?)
+print(np.mean(decoder.cv_scores_[cond_names[1]]))  # todo: understand score (misclassif.?, why so good with motor?, try with other unrelated masks?)
 
 # plot decoder weights
-plot_weights(decoder, fname_anat, condition='negative')
+plot_weights(decoder, fname_anat, condition=cond_names[1])
 
 # save decoder weights
-weigth_img = decoder.coef_img_['negative']
+weigth_img = decoder.coef_img_[cond_names[1]]
 weigth_img.to_filename(data_path + 'W1/weights.nii')
