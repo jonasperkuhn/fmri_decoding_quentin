@@ -13,16 +13,26 @@ from sklearn.model_selection import RepeatedKFold
 from sklearn.model_selection import LeaveOneGroupOut
 
 # define functions
-def load_data(preprocessing: str, data_path: str, plot: bool=False):
+def load_data(strategy: str, preprocessing: str, data_path: str, plot: bool=False):
     # get conditions data from txt file
     fname_onsets = data_path + 'Onsets/' + os.listdir(data_path + 'Onsets')[0]  # get filename of text file with onsets (output from opennft)
-    onsets = pd.read_csv(fname_onsets, delimiter='\t', index_col=False, skiprows=4)  # load txt file with onsets
+    onsets_all = pd.read_csv(fname_onsets, delimiter='\t', index_col=False, skiprows=4)  # load txt file with onsets
+    onsets = onsets_all[onsets_all['strategie'] == strategy]
     cond_names = [' neutre', ' regulation']  # set names of two main conditions (like in txt file) ! pay attention to space bar before word (coming from text file)
     tr = 2  # set TR (in seconds)
     conds_fmri = get_conds_from_txt(onsets, cond_names, tr)  # convert onset data to conditions file (['block', 'condition', 'TR'] with one row per TR)
     #conds_fmri = conds_fmri.iloc[list(range(105)) + list(range(109, 210))]  # todo: only for debugging, to align phantom pilot onsets with pilot 2 data; ! remove later !
     # load brain data [0:105, 109:209]
+    missing_trials = {
+    'block': [6, 6, 6, 6, 6],
+    'condition': ['scale', 'scale', 'scale', 'scale', 'scale'],
+    'TR': [210, 211, 212, 213, 214]
+    }  # todo: only for debugging, to align phantom pilot onsets with pilot 3 data; ! remove later !
+    #df_missing_trials = pd.DataFrame(missing_trials)  # todo: only for debugging, to align phantom pilot onsets with pilot 3 data; ! remove later !
+    #conds_fmri = conds_fmri.append(df_missing_trials)  # todo: only for debugging, to align phantom pilot onsets with pilot 3 data; ! remove later !
     fmri_data, fname_anat = load_brain_data(preprocessing, data_path)  # load fmri data and T1
+    fmri_data = index_img(fmri_data, range(len(conds_fmri)))  # cut brain data to onsets (cut off last scale tr's that are variable and cannot be read from onsets.txt)
+        # todo: ask Pamela if that seems right
     # import mask (and binarize, if specified)
     fname_mask = os.listdir(data_path + 'Mask_ROI_emo')[0]  # get filename of first mask in folder
     mask = load_img(img=data_path + 'Mask_ROI_emo/' + fname_mask)  # load binarized mask
@@ -84,7 +94,7 @@ def load_brain_data(preprocessing, data_path):
 
 def perform_decoding_cv(conditions, fmri_niimgs, mask, conds_fmri, condition_mask, random_state: int, cv_type: str, n_folds: int, anova: bool):
     # perform feature reduction via anova
-    if anova:  # todo: discuss/check params
+    if anova:
         smoothing_fwhm = 8
         screening_percentile = 5
     else:
@@ -93,9 +103,9 @@ def perform_decoding_cv(conditions, fmri_niimgs, mask, conds_fmri, condition_mas
     # determine cv method
     if cv_type == 'k_fold':
         cv = RepeatedKFold(n_splits=n_folds, n_repeats=5, random_state=random_state)  # todo: add n_repeats as input option?
-        scoring = 'accuracy'  # todo: discuss/check
+        scoring = 'accuracy'
         groups = None
-    elif cv_type == 'block_out':  # todo: test block_out
+    elif cv_type == 'block_out':
         cv = LeaveOneGroupOut()
         scoring = 'roc_auc'  # todo: discuss/check
         groups = conds_fmri[condition_mask]['block']
@@ -104,7 +114,7 @@ def perform_decoding_cv(conditions, fmri_niimgs, mask, conds_fmri, condition_mas
         return
     # build decoder
     decoder = Decoder(estimator='svc', mask=mask, cv=cv, screening_percentile=screening_percentile,
-                      scoring=scoring, smoothing_fwhm=smoothing_fwhm, standardize=True) # todo: discuss settings with Pauline
+                      scoring=scoring, smoothing_fwhm=smoothing_fwhm, standardize=True)  # todo: discuss settings with Pauline
     # fit decoder
     decoder.fit(fmri_niimgs, conditions, groups=groups)
     return decoder
@@ -122,12 +132,13 @@ def plot_weights(decoder, fname_anat, condition):
 
 # define path to project folder and main params
 data_path = "C:/Users/Jonas/PycharmProjects/fmri_decoding_quentin/decoding/data/pilot_03/"  # set path to data folder of current set
-preprocessing = "sr"  # specify as 'r' (realigned), 'sr' (realigned + smoothed), or 'swr' (sr + normalization)
+preprocessing = "sr"  # specify as 'r' (realigned), 'sr' (realigned + smoothed), or 'swr' (sr + normalization); if swr, set perform_decoding_cv(anova=True)
+strategy = "Affects positifs"  # specify strategy to decode, corresponding to the brain data (from "Affects positifs", "Pleine conscience", "Reevaluation cognitive", "Pas d'instructions")
 random_state = 8
 
 # load data
 fmri_niimgs, fname_anat, mask, conds_fmri, condition_mask, conditions, cond_names = \
-    load_data(preprocessing, data_path, plot=False)
+    load_data(strategy, preprocessing, data_path, plot=False)
 
 # build and fit decoder in cv
 decoder = perform_decoding_cv(conditions, fmri_niimgs, mask, conds_fmri,
