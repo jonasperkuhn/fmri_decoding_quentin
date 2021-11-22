@@ -22,14 +22,7 @@ def load_data(strategy: str, preprocessing: str, data_path: str, plot: bool=Fals
     tr = 2  # set TR (in seconds)
     conds_fmri = get_conds_from_txt(onsets, cond_names, tr)  # convert onset data to conditions file (['block', 'condition', 'TR'] with one row per TR)
     #conds_fmri = conds_fmri.iloc[list(range(105)) + list(range(109, 210))]  # todo: only for debugging, to align phantom pilot onsets with pilot 2 data; ! remove later !
-    # load brain data [0:105, 109:209]
-    missing_trials = {
-    'block': [6, 6, 6, 6, 6],
-    'condition': ['scale', 'scale', 'scale', 'scale', 'scale'],
-    'TR': [210, 211, 212, 213, 214]
-    }  # todo: only for debugging, to align phantom pilot onsets with pilot 3 data; ! remove later !
-    #df_missing_trials = pd.DataFrame(missing_trials)  # todo: only for debugging, to align phantom pilot onsets with pilot 3 data; ! remove later !
-    #conds_fmri = conds_fmri.append(df_missing_trials)  # todo: only for debugging, to align phantom pilot onsets with pilot 3 data; ! remove later !
+    # load brain data
     fmri_data, fname_anat = load_brain_data(preprocessing, data_path)  # load fmri data and T1
     fmri_data = index_img(fmri_data, range(len(conds_fmri)))  # cut brain data to onsets (cut off last scale tr's that are variable and cannot be read from onsets.txt)
         # todo: ask Pamela if that seems right
@@ -130,10 +123,13 @@ def plot_weights(decoder, fname_anat, condition):
     return
 
 
-# define path to project folder and main params
+# define main params
 data_path = "C:/Users/Jonas/PycharmProjects/fmri_decoding_quentin/decoding/data/pilot_03/"  # set path to data folder of current set
 preprocessing = "sr"  # specify as 'r' (realigned), 'sr' (realigned + smoothed), or 'swr' (sr + normalization); if swr, set perform_decoding_cv(anova=True)
-strategy = "Affects positifs"  # specify strategy to decode, corresponding to the brain data (from "Affects positifs", "Pleine conscience", "Reevaluation cognitive", "Pas d'instructions")
+cv_type = 'k_fold'  # cross-validation type: either 'k_fold' or 'block_out'
+n_folds = 5  # number of folds to perform in k-fold cross-validation; only used if cv_type == 'k_fold'
+anova = False  # if True, anova is performed as feature reduction method prior to decoding
+strategy = "Affects positifs"  # specify strategy to decode, corresponding to the brain data in the folder (from "Affects positifs", "Pleine conscience", "Reevaluation cognitive", "Pas d'instructions")
 random_state = 8
 
 # load data
@@ -142,9 +138,9 @@ fmri_niimgs, fname_anat, mask, conds_fmri, condition_mask, conditions, cond_name
 
 # build and fit decoder in cv
 decoder = perform_decoding_cv(conditions, fmri_niimgs, mask, conds_fmri,
-                              condition_mask, random_state, cv_type='k_fold', n_folds=5, anova=False)
+                              condition_mask, random_state, cv_type=cv_type, n_folds=n_folds, anova=anova)
 # evaluate decoder
-print(np.mean(decoder.cv_scores_[cond_names[1]]))  # todo: understand score (misclassif.?, why so good with motor?, try with other unrelated masks?)
+print(np.mean(decoder.cv_scores_[cond_names[1]]))
 
 # plot decoder weights
 plot_weights(decoder, fname_anat, condition=cond_names[1])
