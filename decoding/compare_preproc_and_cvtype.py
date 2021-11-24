@@ -122,38 +122,50 @@ def plot_weights(decoder, fname_anat, condition):
     #p2.open_in_browser()
     return
 
+def compare_cvs(strategy, data_path, random_state):
+    # set different preprocessing and cv types
+    preprocessing_types = ['r', 'sr', 'swr', 'swr_anova']  # 'r' (realigned), 'sr' (realigned + smoothed), 'swr' (sr + normalization)
+    cv_types = ['k_fold', 'block_out']  # cross-validation type
+    kfold_types = [5,
+                   10]  # number of folds to perform in k-fold cross-validation; only makes a difference if cv_type == 'k_fold'
+
+    # create table to store results
+    row_names = [cv + str(fold) for cv in cv_types for fold in
+                 kfold_types]  # create row names (comb. of cv and fold, to make 2D)
+    avg_scores = pd.DataFrame(index=row_names, columns=preprocessing_types)  # df for mean scores
+    avg_stds_scores = pd.DataFrame(index=row_names, columns=preprocessing_types)  # df for standard deviation of scores
+
+    # loop over different preprocessing and cv types
+    for preprocessing in preprocessing_types:
+        # set anova variable
+        if preprocessing == 'swr_anova':
+            anova = True
+        else:
+            anova = False
+        # loop over cv_types
+        for cv_type in cv_types:
+            for n_folds in kfold_types:
+                # load data
+                fmri_niimgs, fname_anat, mask, conds_fmri, condition_mask, conditions, cond_names = \
+                    load_data(strategy, preprocessing, data_path, plot=False)
+                # build and fit decoder in cv
+                decoder = perform_decoding_cv(conditions, fmri_niimgs, mask, conds_fmri,
+                                              condition_mask, random_state, cv_type=cv_type, n_folds=n_folds,
+                                              anova=anova)
+                # save decoder scores in table
+                avg_scores.at[cv_type + str(n_folds), preprocessing] = np.mean(decoder.cv_scores_[cond_names[1]])
+                avg_stds_scores.at[cv_type + str(n_folds), preprocessing] = np.std(decoder.cv_scores_[cond_names[1]])
+    return avg_scores, avg_stds_scores
+
 
 # define main params
-strategy = "Affects positifs"  # specify strategy corresponding to the brain data in the folder (from "Affects positifs", "Pleine conscience", "Reevaluation cognitive", "Pas d'instructions")
-data_path = "C:/Users/Jonas/PycharmProjects/fmri_decoding_quentin/decoding/data/pilot_03/"  # set path to data folder of current set
+strategy = "Pas d'instructions"  # specify strategy corresponding to the brain data in the folder (from "Affects positifs", "Pleine conscience", "Reevaluation cognitive", "Pas d'instructions"; for pilot 4, "Regulation_3")
+data_path = "C:/Users/Jonas/PycharmProjects/fmri_decoding_quentin/decoding/data/pilot_04/"  # set path to data folder of current set
 random_state = 8
 
-# set different preprocessing and cv types
-preprocessing_types = ['r', 'sr']  # 'r' (realigned), 'sr' (realigned + smoothed), 'swr' (sr + normalization)
-cv_types = ['k_fold', 'block_out']  # cross-validation type
-kfold_types = [5, 10]  # number of folds to perform in k-fold cross-validation; only makes a difference if cv_type == 'k_fold'
-
-# create table to store results
-row_names = [cv + str(fold) for cv in cv_types for fold in kfold_types]  # create row names (comb. of cv and fold, to make 2D)
-avg_scores = pd.DataFrame(index=row_names, columns=preprocessing_types)  # df for mean scores
-avg_stds_scores = pd.DataFrame(index=row_names, columns=preprocessing_types)  # df for standard deviation of scores
-
-# loop over different preprocessing and cv types
-for preprocessing in preprocessing_types:
-    # set anova variable
-    if preprocessing == 'swr_anova':
-        anova = True
-    else:
-        anova = False
-    # loop over cv_types
-    for cv_type in cv_types:
-        for n_folds in kfold_types:
-            # load data
-            fmri_niimgs, fname_anat, mask, conds_fmri, condition_mask, conditions, cond_names = \
-                load_data(strategy, preprocessing, data_path, plot=False)
-            # build and fit decoder in cv
-            decoder = perform_decoding_cv(conditions, fmri_niimgs, mask, conds_fmri,
-                                          condition_mask, random_state, cv_type=cv_type, n_folds=n_folds, anova=anova)
-            # save decoder scores in table
-            avg_scores.at[cv_type+str(n_folds), preprocessing] = np.mean(decoder.cv_scores_[cond_names[1]])
-            avg_stds_scores.at[cv_type+str(n_folds), preprocessing] = np.std(decoder.cv_scores_[cond_names[1]])
+#scores_3PC = avg_scores
+#std_3PC = avg_stds_scores
+# scores_3AP, std_3AP = compare_cvs(strategy, data_path, random_state)
+scores_4PI, std_4PI = compare_cvs(strategy, data_path, random_state)
+#scores_4RE = avg_scores
+#std_4RE = avg_stds_scores
