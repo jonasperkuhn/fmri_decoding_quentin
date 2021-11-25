@@ -122,6 +122,17 @@ def plot_weights(decoder, fname_anat, condition):
     #p2.open_in_browser()
     return
 
+def save_accs_to_txt(mean_score, scores, data_path):
+    with open(data_path + 'W1/decoding_accuracies.txt', 'w') as f:
+        f.write('mean accuracy across folds:')
+        f.write('\n')
+        f.write(str(mean_score))
+        f.write('\n')
+        f.write('accuracies per cv fold and repetition:')
+        f.write('\n')
+        f.write(str(scores))
+    return
+
 
 # define main params
 data_path = "C:/Users/Jonas/PycharmProjects/fmri_decoding_quentin/decoding/data/pilot_03/"  # set path to data folder of current set
@@ -139,8 +150,6 @@ fmri_niimgs, fname_anat, mask, conds_fmri, condition_mask, conditions, cond_name
 # build and fit decoder in cv
 decoder = perform_decoding_cv(conditions, fmri_niimgs, mask, conds_fmri,
                               condition_mask, random_state, cv_type=cv_type, n_folds=n_folds, anova=anova)
-# evaluate decoder
-print(np.mean(decoder.cv_scores_[cond_names[1]]))
 
 # plot decoder weights
 plot_weights(decoder, fname_anat, condition=cond_names[1])
@@ -148,3 +157,11 @@ plot_weights(decoder, fname_anat, condition=cond_names[1])
 # save decoder weights
 weigth_img = decoder.coef_img_[cond_names[1]]
 weigth_img.to_filename(data_path + 'W1/weights.nii')
+
+# evaluate decoder
+scores = decoder.cv_scores_[cond_names[1]]  # classification accuracy for each fold
+mean_score = np.mean(scores)  # average classification accuracy across folds
+# save evaluation results in txt file
+save_accs_to_txt(mean_score, scores, data_path)
+#print(mean_score)
+#print(np.std(scores))
