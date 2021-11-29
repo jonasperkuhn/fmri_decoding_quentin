@@ -126,8 +126,7 @@ def compare_cvs(strategy, data_path, random_state):
     # set different preprocessing and cv types
     preprocessing_types = ['r', 'sr', 'swr', 'swr_anova']  # 'r' (realigned), 'sr' (realigned + smoothed), 'swr' (sr + normalization)
     cv_types = ['k_fold', 'block_out']  # cross-validation type
-    kfold_types = [5,
-                   10]  # number of folds to perform in k-fold cross-validation; only makes a difference if cv_type == 'k_fold'
+    kfold_types = [5, 10]  # number of folds to perform in k-fold cross-validation; only makes a difference if cv_type == 'k_fold'
 
     # create table to store results
     row_names = [cv + str(fold) for cv in cv_types for fold in
@@ -136,10 +135,11 @@ def compare_cvs(strategy, data_path, random_state):
     avg_stds_scores = pd.DataFrame(index=row_names, columns=preprocessing_types)  # df for standard deviation of scores
 
     # loop over different preprocessing and cv types
-    for preprocessing in preprocessing_types:
+    for i_prep, preprocessing in enumerate(preprocessing_types):
         # set anova variable
         if preprocessing == 'swr_anova':
             anova = True
+            preprocessing = 'swr'
         else:
             anova = False
         # loop over cv_types
@@ -153,19 +153,21 @@ def compare_cvs(strategy, data_path, random_state):
                                               condition_mask, random_state, cv_type=cv_type, n_folds=n_folds,
                                               anova=anova)
                 # save decoder scores in table
-                avg_scores.at[cv_type + str(n_folds), preprocessing] = np.mean(decoder.cv_scores_[cond_names[1]])
-                avg_stds_scores.at[cv_type + str(n_folds), preprocessing] = np.std(decoder.cv_scores_[cond_names[1]])
+                avg_scores.at[cv_type + str(n_folds), preprocessing_types[i_prep]] = np.mean(decoder.cv_scores_[cond_names[1]])
+                avg_stds_scores.at[cv_type + str(n_folds), preprocessing_types[i_prep]] = np.std(decoder.cv_scores_[cond_names[1]])
+                print(preprocessing_types[i_prep])
+                print(cv_type)
+                print(n_folds)
     return avg_scores, avg_stds_scores
 
 
 # define main params
-strategy = "Pas d'instructions"  # specify strategy corresponding to the brain data in the folder (from "Affects positifs", "Pleine conscience", "Reevaluation cognitive", "Pas d'instructions"; for pilot 4, "Regulation_3")
+strategy = "Regulation_3"  # specify strategy corresponding to the brain data in the folder (from "Affects positifs", "Pleine conscience", "Reevaluation cognitive", "Pas d'instructions"; for pilot 4, "Regulation_3")
 data_path = "C:/Users/Jonas/PycharmProjects/fmri_decoding_quentin/decoding/data/pilot_04/"  # set path to data folder of current set
 random_state = 8
 
-#scores_3PC = avg_scores
-#std_3PC = avg_stds_scores
+# scores_3PC, std_3PC = compare_cvs(strategy, data_path, random_state)
 # scores_3AP, std_3AP = compare_cvs(strategy, data_path, random_state)
-scores_4PI, std_4PI = compare_cvs(strategy, data_path, random_state)
-#scores_4RE = avg_scores
-#std_4RE = avg_stds_scores
+# scores_4PI, std_4PI = compare_cvs(strategy, data_path, random_state)
+scores_4RE, std_4RE = compare_cvs(strategy, data_path, random_state)
+
