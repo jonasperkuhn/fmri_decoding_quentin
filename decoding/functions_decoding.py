@@ -49,7 +49,7 @@ def get_conds_from_txt(onsets, cond_names, tr):
     onsets_tr = onsets_tr_selected.copy()  # copy data frame, due to pandas rules
     onsets_tr.loc[:, 'dur_TR'] = np.nan  # add row to save duration in TR instead of seconds
     for row, onset in enumerate(onsets_tr['onsets_seconds']):
-        onsets_tr.at[row, 'dur_TR'] = int(round(onset / tr))  # convert seconds to TR  # todo: change indexing - row names are 1-based; quick change: onsets_tr.at[row+1, 'dur_TR']
+        onsets_tr.iat[row, 2] = int(round(onset / tr))  # convert seconds to TR
     n_TR = int(list(onsets_tr['dur_TR'])[-1] + 1)  # total number of TR (1 added because of base 0)
     # set up and fill final conditions data frame with n_rows = n_TR
     colnames = ['block', 'condition', 'TR']  # define variable names
@@ -61,7 +61,7 @@ def get_conds_from_txt(onsets, cond_names, tr):
         diff_to_tr = np.array([TR - dur_TR for dur_TR in onsets_tr['dur_TR']])  # compare TR to all TRs in original onsets table
         diff_to_tr_pos = np.where(diff_to_tr >= 0, diff_to_tr, np.inf)  # set negative values to infinity (to avoid getting condition of subsequent trial, following the onset time)
         i_closest = diff_to_tr_pos.argmin()  # find condition of closest positive diff.
-        conds_fmri.iat[TR, 1] = onsets_tr['condition'][i_closest]  # set closest condition in conds_fmri['condition']
+        conds_fmri.iat[TR, 1] = np.array(onsets_tr['condition'])[i_closest]  # set closest condition in conds_fmri['condition']
     # set block number from condition
     i_block = 0  # set block index to 0
     for row, cond in enumerate(conds_fmri['condition']):

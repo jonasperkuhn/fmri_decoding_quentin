@@ -3,19 +3,20 @@
 """ Script to decode image type (negative vs. neutral) from fmri brain activity """
 
 import numpy as np
-import functions_decoding as my_fcts
+from decoding import functions_decoding as my_fcts
 
 
 # todo: check whether it runs for pilot 2; check whether all runs for pilots 3 and 4
 # todo: for pilot 6, set "strategie" name of pause in onsets file to that of previous strategy (to include it into trials)
 
 # define main params
-data_path = "C:/Users/Jonas/PycharmProjects/fmri_decoding_quentin/decoding/data/pilot_03/"  # set path to data folder of current set
+data_path = "C:/Users/Jonas/PycharmProjects/fmri_decoding_quentin/decoding/data/pilot_02/"  # set path to data folder of current set
 preprocessing = "r"  # specify as 'r' (realigned), 'sr' (realigned + smoothed), or 'swr' (sr + normalization); if swr, set perform_decoding_cv(anova=True)
 cv_type = 'k_fold'  # cross-validation type: either 'k_fold' or 'block_out'
 n_folds = 5  # number of folds to perform in k-fold cross-validation; only used if cv_type == 'k_fold'
 anova = False  # if True, anova is performed as feature reduction method prior to decoding
-strategy = "Affects positifs"  # specify strategy to decode, corresponding to the brain data in the folder (from "Affects positifs", "Pleine conscience", "Reevaluation cognitive", "Pas d'instructions")
+strategy = "Pas d'instructions"  # specify strategy to decode, corresponding to the brain data in the folder, named like in onsets file
+    # ["Affects positifs", "Pleine conscience", "Reevaluation cognitive", "Pas d'instructions", "Regulation_3"]
 random_state = 8
 
 # load data
