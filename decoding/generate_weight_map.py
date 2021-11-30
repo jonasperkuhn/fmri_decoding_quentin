@@ -140,7 +140,7 @@ preprocessing = "sr"  # specify as 'r' (realigned), 'sr' (realigned + smoothed),
 cv_type = 'k_fold'  # cross-validation type: either 'k_fold' or 'block_out'
 n_folds = 5  # number of folds to perform in k-fold cross-validation; only used if cv_type == 'k_fold'
 anova = False  # if True, anova is performed as feature reduction method prior to decoding
-strategy = "Affects positifs"  # specify strategy to decode, corresponding to the brain data in the folder (from "Affects positifs", "Pleine conscience", "Reevaluation cognitive", "Pas d'instructions")
+strategy = "Pas d'instructions"  # specify strategy to decode, corresponding to the brain data in the folder (from "Affects positifs", "Pleine conscience", "Reevaluation cognitive", "Pas d'instructions")
 random_state = 8
 
 # load data
@@ -165,3 +165,7 @@ mean_score = np.mean(scores)  # average classification accuracy across folds
 save_accs_to_txt(mean_score, scores, data_path)
 #print(mean_score)
 #print(np.std(scores))
+
+# plot_stat_map(weigth_img, bg_img=T1, title="SVM weights")
+# p2 = plotting.view_img(weigth_img, bg_img=T1, title="SVM weights", dim=-1)
+# p2.open_in_browser()
