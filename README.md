@@ -11,24 +11,24 @@
   - cv_type: either 'k_fold' or 'block_out'
   - n_folds: (int) only relevant for 'k_fold', else param is ignored
   - anova: (boolean) whether you want to perform an anova before decoding
-  - strategy: emotion regulation strategy session (the one that corresponds to the brain data in ./EPIs_baseline/)
+  - strategy: emotion regulation strategy session (the one that corresponds to the brain data in `./EPIs_baseline/`)
   - random_state: random seed used in cross-validation
 
 ## Data folder structure
 - Based on data folder structure generated automatically during preprocessing via Pamela's matlab script
 - binarized roi mask in subject space:
-``` .../Mask_ROI_emo/ ```
+``` ./Mask_ROI_emo/ ```
 - brain data for specified strategy:
-``` .../EPIs_baseline/ ```
+``` ./EPIs_baseline/ ```
   - as preprocessed 4D .nii files
 - mean epi:
-``` .../MCTemplate/ ```
+``` ./MCTemplate/ ```
 - anatomical data in:
-``` .../T1/ ```
+``` ./T1/ ```
 - onsets file (event onsets, opennft output .txt file)
-``` .../Onsets/ ```
+``` ./Onsets/ ```
 - Empty folder to save decoded weights:
-``` .../W1/ ```
+``` ./W1/ ```
 ### Alternative data folder structure for pilot 1/2 (multiple sessions):
 - raw or binarized roi masks:
 ``` .../pilot02/masks/ ```
