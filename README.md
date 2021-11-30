@@ -1,9 +1,9 @@
 # fmri_decoding_quentin
 ## Instructions for using script
-- Main script: `generate_weight_map.py` (for single session data with onsets)
-- Other scripts (harder to handle, but may contain useful code):
-  - `compare_preproc_and_cvtype.py` (to compare cv params across multiple sessions and emot. reg. strategies)
-  - `decoding_pilot_1_2.py` (for decoding data from the first two pilots)
+- Scripts:
+  - `generate_weight_map.py` - main script to generate the weight map, for single session data
+  - `functions_decoding.py` - file that collects all custom functions
+  - `compare_preproc_and_cvtype.py` (to compare cv params across multiple sessions and emot. reg. strategies; harder to handle but may contain useful code)
 - Before using the `generate_weight_map.py` script, move preprocessed brain data (fmri & T1), onsets, and binarized mask in subject space to data folder (cf. "Data folder structure" below)
 - Within the script, set the following variables:
   - data_path: indicate the path to your data folder
