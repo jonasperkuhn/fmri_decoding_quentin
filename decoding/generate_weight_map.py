@@ -137,12 +137,12 @@ def save_accs_to_txt(mean_score, scores, data_path):
 
 
 # define main params
-data_path = "C:/Users/Jonas/PycharmProjects/fmri_decoding_quentin/decoding/data/pilot_03/"  # set path to data folder of current set
+data_path = "C:/Users/pp262170/Documents/NF_BD/Pilot_study/Pilot_20210727/SESSION_1/"  # set path to data folder of current set
 preprocessing = "sr"  # specify as 'r' (realigned), 'sr' (realigned + smoothed), or 'swr' (sr + normalization); if swr, set perform_decoding_cv(anova=True)
 cv_type = 'k_fold'  # cross-validation type: either 'k_fold' or 'block_out'
 n_folds = 5  # number of folds to perform in k-fold cross-validation; only used if cv_type == 'k_fold'
 anova = False  # if True, anova is performed as feature reduction method prior to decoding
-strategy = "Affects positifs"  # specify strategy to decode, corresponding to the brain data in the folder (from "Affects positifs", "Pleine conscience", "Reevaluation cognitive", "Pas d'instructions")
+strategy = "Pas d'instructions"  # specify strategy to decode, corresponding to the brain data in the folder (from "Affects positifs", "Pleine conscience", "Reevaluation cognitive", "Pas d'instructions")
 random_state = 8
 
 # load data
