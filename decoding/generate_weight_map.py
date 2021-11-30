@@ -21,11 +21,13 @@ def load_data(strategy: str, preprocessing: str, data_path: str, plot: bool=Fals
     cond_names = [' neutre', ' regulation']  # set names of two main conditions (like in txt file) ! pay attention to space bar before word (coming from text file)
     tr = 2  # set TR (in seconds)
     conds_fmri = get_conds_from_txt(onsets, cond_names, tr)  # convert onset data to conditions file (['block', 'condition', 'TR'] with one row per TR)
-    #conds_fmri = conds_fmri.iloc[list(range(105)) + list(range(109, 210))]  # todo: only for debugging, to align phantom pilot onsets with pilot 2 data; ! remove later !
+    conds_fmri = conds_fmri.iloc[list(range(0, 215))]  # todo: only to correct for final onset (and for debugging, to align phantom pilot onsets with pilot 2 data); ! remove later !
+    #extra_lines = pd.DataFrame(index=["215", "216"], columns=["block", "condition", "TR"])  # quick fix if brain data and conds are misaligned; todo: change later!
+    #conds_fmri = conds_fmri.append(extra_lines)  # quick fix if brain data and conds are misaligned; todo: change later!
     # load brain data
     fmri_data, fname_anat = load_brain_data(preprocessing, data_path)  # load fmri data and T1
     fmri_data = index_img(fmri_data, range(len(conds_fmri)))  # cut brain data to onsets (cut off last scale tr's that are variable and cannot be read from onsets.txt)
-        # todo: ask Pamela if that seems right
+        # todo: change, instead stabilize onset - data alignment!
     # import mask (and binarize, if specified)
     fname_mask = os.listdir(data_path + 'Mask_ROI_emo')[0]  # get filename of first mask in folder
     mask = load_img(img=data_path + 'Mask_ROI_emo/' + fname_mask)  # load binarized mask
@@ -140,7 +142,7 @@ preprocessing = "sr"  # specify as 'r' (realigned), 'sr' (realigned + smoothed),
 cv_type = 'k_fold'  # cross-validation type: either 'k_fold' or 'block_out'
 n_folds = 5  # number of folds to perform in k-fold cross-validation; only used if cv_type == 'k_fold'
 anova = False  # if True, anova is performed as feature reduction method prior to decoding
-strategy = "Pas d'instructions"  # specify strategy to decode, corresponding to the brain data in the folder (from "Affects positifs", "Pleine conscience", "Reevaluation cognitive", "Pas d'instructions")
+strategy = "Affects positifs"  # specify strategy to decode, corresponding to the brain data in the folder (from "Affects positifs", "Pleine conscience", "Reevaluation cognitive", "Pas d'instructions")
 random_state = 8
 
 # load data
